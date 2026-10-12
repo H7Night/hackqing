@@ -1,0 +1,21 @@
+# Android / Gradle
+.gradle/
+build/
+local.properties
+*.iml
+.idea/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# 逆向工作区（体积大，不入库）
+reverse/apk/*.apk
+reverse/apk/extracted/
+reverse/**/dex/
+reverse/**/all_strings.txt
+reverse/jadx-out/
+reverse/hc-jadx/
+reverse/capture/
+reverse/live/
+reverse/evidence/ScaleCheck.log
+reverse/evidence/*.log
