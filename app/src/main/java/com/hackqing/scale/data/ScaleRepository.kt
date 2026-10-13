@@ -242,6 +242,13 @@ object ScaleRepository {
         addLog("已删除记录 #$id")
     }
 
+    /** 标记某条测量是否已同步到 Health Connect（用于去重与删除联动）。 */
+    fun markHcSynced(id: Long, synced: Boolean) {
+        val list = _state.value.history.map { if (it.id == id) it.copy(hcSynced = synced) else it }
+        _state.value = _state.value.copy(history = list)
+        scope.launch { store.save(list) }
+    }
+
     fun clearHistory() {
         _state.value = _state.value.copy(history = emptyList())
         scope.launch { store.save(emptyList()) }

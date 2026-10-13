@@ -22,6 +22,8 @@ data class ScaleMeasurement(
     val protoVersion: Int = 0,
     /** 体成分（由 hackqing 本地算法计算，等价好轻） */
     val composition: com.hackqing.scale.body.BodyComposition? = null,
+    /** 是否已同步到 Health Connect（用于避免重复同步 & 删除时联动） */
+    val hcSynced: Boolean = false,
 )
 
 /** 供 hackqing 绑定 / 写入秤的用户档案。秤用这些信息计算体脂并归属测量结果。 */

@@ -16,6 +16,8 @@ import java.time.Instant
  * Health Connect 单项同步。
  *
  * 写入项目：体重（WeightRecord）；若测量含体脂率则一并写入 BodyFatRecord。
+ * 每条测量使用**稳定的 clientRecordId**（由测量 id 推导），因此重复同步同一记录
+ * 在 Health Connect 中只会更新、不会产生重复条目；删除时也据此精确删除。
  * 目前为手动触发（每条记录点“同步”）。
  */
 class HealthConnectManager(private val context: Context) {
@@ -42,27 +44,47 @@ class HealthConnectManager(private val context: Context) {
         }
     }
 
-    /** 单项同步：写入一条测量。 */
+    private fun weightClientId(m: ScaleMeasurement) = "hackqing-weight-${m.id}"
+    private fun bodyFatClientId(m: ScaleMeasurement) = "hackqing-bodyfat-${m.id}"
+
+    /** 单项同步：写入（或更新）一条测量，使用稳定 clientRecordId 避免重复。 */
     suspend fun sync(m: ScaleMeasurement) {
         val client = HealthConnectClient.getOrCreate(context)
-        val meta = Metadata.manualEntry()
         val time = Instant.ofEpochMilli(m.timeMillis)
         val offset = java.time.ZoneId.systemDefault().rules.getOffset(time)
+        val version = System.currentTimeMillis()
         val records = mutableListOf<Record>()
         records += WeightRecord(
             time = time,
             zoneOffset = offset,
             weight = Mass.kilograms(m.weightKg.toDouble()),
-            metadata = meta,
+            metadata = Metadata.manualEntry(weightClientId(m), version),
         )
         m.bodyFatPercent?.let {
             records += BodyFatRecord(
                 time = time,
                 zoneOffset = offset,
                 percentage = Percentage(it.toDouble()),
-                metadata = meta,
+                metadata = Metadata.manualEntry(bodyFatClientId(m), version),
             )
         }
         client.insertRecords(records)
+    }
+
+    /** 删除该测量在 Health Connect 中对应的记录（按稳定 clientRecordId）。 */
+    suspend fun deleteFor(m: ScaleMeasurement) {
+        val client = HealthConnectClient.getOrCreate(context)
+        client.deleteRecords(
+            WeightRecord::class,
+            recordIdsList = emptyList(),
+            clientRecordIdsList = listOf(weightClientId(m)),
+        )
+        if (m.bodyFatPercent != null) {
+            client.deleteRecords(
+                BodyFatRecord::class,
+                recordIdsList = emptyList(),
+                clientRecordIdsList = listOf(bodyFatClientId(m)),
+            )
+        }
     }
 }

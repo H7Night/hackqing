@@ -48,8 +48,33 @@ class ScaleViewModel(app: Application) : AndroidViewModel(app) {
     fun sendHex(hex: String) = ScaleRepository.sendHex(hex)
     fun resendUserInfo() = ScaleRepository.resendUserInfo()
     fun updateProfile(p: UserProfile) = ScaleRepository.updateProfile(getApplication(), p)
-    fun deleteMeasurement(id: Long) = ScaleRepository.deleteMeasurement(id)
     fun clearHistory() = ScaleRepository.clearHistory()
+
+    /**
+     * 删除一条记录。若 [m] 已同步到 Health Connect 且 [alsoDeleteHc] 为真，
+     * 则同时删除 Health Connect 中对应的数据；否则只删本地。
+     */
+    fun deleteMeasurement(m: ScaleMeasurement, alsoDeleteHc: Boolean, onResult: (String) -> Unit) {
+        viewModelScope.launch {
+            var note = ""
+            if (alsoDeleteHc && m.hcSynced) {
+                note = try {
+                    when {
+                        !healthConnect.isAvailable -> "（HC 不可用，未删除 HC 数据）"
+                        !healthConnect.hasAllPermissions() -> "（无 HC 权限，未删除 HC 数据）"
+                        else -> {
+                            healthConnect.deleteFor(m)
+                            "，并已删除 Health Connect 数据"
+                        }
+                    }
+                } catch (e: Exception) {
+                    "（HC 删除失败: ${e.message}）"
+                }
+            }
+            ScaleRepository.deleteMeasurement(m.id)
+            onResult("已删除$note")
+        }
+    }
 
     // ---------- 后台自动接收 ----------
     fun setBackground(enabled: Boolean) {
@@ -121,13 +146,15 @@ class ScaleViewModel(app: Application) : AndroidViewModel(app) {
     fun syncToHealthConnect(m: ScaleMeasurement, onResult: (String) -> Unit) {
         viewModelScope.launch {
             val msg = try {
-                if (!healthConnect.isAvailable) {
-                    "未安装/不支持 Health Connect"
-                } else if (!healthConnect.hasAllPermissions()) {
-                    "需要先授予 Health Connect 权限"
-                } else {
-                    healthConnect.sync(m)
-                    "已同步到 Health Connect"
+                when {
+                    !healthConnect.isAvailable -> "未安装/不支持 Health Connect"
+                    !healthConnect.hasAllPermissions() -> "需要先授予 Health Connect 权限"
+                    else -> {
+                        val already = m.hcSynced
+                        healthConnect.sync(m)
+                        ScaleRepository.markHcSynced(m.id, true)
+                        if (already) "已更新到 Health Connect（不重复）" else "已同步到 Health Connect"
+                    }
                 }
             } catch (e: Exception) {
                 "同步失败: ${e.message}"

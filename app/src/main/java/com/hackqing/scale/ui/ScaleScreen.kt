@@ -322,7 +322,10 @@ private fun HistoryTab(
                             }) {
                                 Icon(Icons.Filled.FavoriteBorder, contentDescription = null, tint = Accent)
                                 Spacer(Modifier.width(4.dp))
-                                Text("同步到 Health Connect", fontSize = 12.sp)
+                                Text(
+                                    if (m.hcSynced) "已同步到 Health Connect" else "同步到 Health Connect",
+                                    fontSize = 12.sp,
+                                )
                             }
                             Spacer(Modifier.weight(1f))
                             IconButton(onClick = { pendingDelete = m }) {
@@ -345,20 +348,53 @@ private fun HistoryTab(
         )
     }
 
-    // 删除确认
+    // 删除确认（已同步的记录询问是否一并删除 Health Connect 数据）
     pendingDelete?.let { m ->
         AlertDialog(
             onDismissRequest = { pendingDelete = null },
             title = { Text("删除记录") },
             text = {
-                Text("确定删除 ${fmt.format(Date(m.timeMillis))} 的 ${String.format(Locale.US, "%.2f", m.weightKg)} kg 记录？此操作不可撤销。")
+                Column {
+                    Text(
+                        "${fmt.format(Date(m.timeMillis))} · ${String.format(Locale.US, "%.2f", m.weightKg)} kg",
+                        color = Color.White, fontSize = 13.sp,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        if (m.hcSynced) {
+                            "该记录已同步到 Health Connect。是否同时删除 Health Connect 中的数据？"
+                        } else {
+                            "此操作不可撤销。"
+                        },
+                        color = Dim, fontSize = 13.sp,
+                    )
+                }
             },
             confirmButton = {
-                TextButton(onClick = {
-                    vm.deleteMeasurement(m.id)
-                    pendingDelete = null
-                    scope.launch { snackbar.showSnackbar("已删除") }
-                }) { Text("删除", color = Color(0xFFE06666)) }
+                if (m.hcSynced) {
+                    Row {
+                        TextButton(onClick = {
+                            vm.deleteMeasurement(m, alsoDeleteHc = false) { msg ->
+                                scope.launch { snackbar.showSnackbar(msg) }
+                            }
+                            pendingDelete = null
+                        }) { Text("仅删本地") }
+                        Spacer(Modifier.width(4.dp))
+                        TextButton(onClick = {
+                            vm.deleteMeasurement(m, alsoDeleteHc = true) { msg ->
+                                scope.launch { snackbar.showSnackbar(msg) }
+                            }
+                            pendingDelete = null
+                        }) { Text("同时删 HC", color = Color(0xFFE06666)) }
+                    }
+                } else {
+                    TextButton(onClick = {
+                        vm.deleteMeasurement(m, alsoDeleteHc = false) { msg ->
+                            scope.launch { snackbar.showSnackbar(msg) }
+                        }
+                        pendingDelete = null
+                    }) { Text("删除", color = Color(0xFFE06666)) }
+                }
             },
             dismissButton = {
                 TextButton(onClick = { pendingDelete = null }) { Text("取消") }

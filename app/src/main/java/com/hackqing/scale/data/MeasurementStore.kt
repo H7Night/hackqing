@@ -28,6 +28,7 @@ class MeasurementStore(private val context: Context) {
                     isFinal = o.optBoolean("final", true),
                     rawHex = o.optString("raw", ""),
                     protoVersion = o.optInt("ver", 0),
+                    hcSynced = o.optBoolean("hcSynced", false),
                     composition = o.optJSONObject("comp")?.let { c ->
                         com.hackqing.scale.body.BodyComposition(
                             bmi = c.optDouble("bmi", 0.0).toFloat(),
@@ -65,6 +66,7 @@ class MeasurementStore(private val context: Context) {
                     put("final", m.isFinal)
                     put("raw", m.rawHex)
                     put("ver", m.protoVersion)
+                    put("hcSynced", m.hcSynced)
                     m.composition?.let { c ->
                         put("comp", JSONObject().apply {
                             put("bmi", c.bmi.toDouble())
