@@ -36,6 +36,7 @@ class ScaleService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var lastSummary = ""
+    private var observing = false
 
     override fun onCreate() {
         super.onCreate()
@@ -61,6 +62,8 @@ class ScaleService : Service() {
     }
 
     private fun observe() {
+        if (observing) return
+        observing = true
         scope.launch {
             ScaleRepository.state.collectLatest { s ->
                 val summary = when {
