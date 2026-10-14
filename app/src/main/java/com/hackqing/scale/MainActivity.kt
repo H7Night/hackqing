@@ -10,12 +10,10 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.graphics.Color
 import com.hackqing.scale.ui.ScaleScreen
 import com.hackqing.scale.ui.ScaleViewModel
+import com.hackqing.scale.ui.theme.HackqingTheme
 import com.hackqing.scale.service.ScaleService
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -45,15 +43,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            MaterialTheme(
-                colorScheme = darkColorScheme(
-                    primary = Color(0xFF37D6A3),
-                    background = Color(0xFF101418),
-                    surface = Color(0xFF1B2129),
-                    onBackground = Color.White,
-                    onSurface = Color.White,
-                )
-            ) {
+            HackqingTheme {
                 LaunchedEffect(Unit) {
                     requestPerms.launch(requiredPermissions)
                 }

@@ -32,6 +32,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -66,10 +67,14 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private val Bg = Color(0xFF101418)
-private val CardBg = Color(0xFF1B2129)
-private val Accent = Color(0xFF37D6A3)
-private val Dim = Color(0xFF8A94A6)
+private val Bg: Color
+    @Composable get() = MaterialTheme.colorScheme.background
+private val CardBg: Color
+    @Composable get() = MaterialTheme.colorScheme.surfaceContainer
+private val Accent: Color
+    @Composable get() = MaterialTheme.colorScheme.primary
+private val Dim: Color
+    @Composable get() = MaterialTheme.colorScheme.onSurfaceVariant
 
 @Composable
 fun ScaleScreen(vm: ScaleViewModel) {
@@ -142,7 +147,8 @@ private fun TopBar(ui: UiState) {
     }
 }
 
-private fun stateColor(s: ScaleGattClient.State) = when (s) {
+@Composable
+private fun stateColor(s: ScaleGattClient.State): Color = when (s) {
     ScaleGattClient.State.READY -> Accent
     ScaleGattClient.State.SCANNING, ScaleGattClient.State.CONNECTING, ScaleGattClient.State.DISCOVERING -> Color(0xFFFFC857)
     else -> Dim
