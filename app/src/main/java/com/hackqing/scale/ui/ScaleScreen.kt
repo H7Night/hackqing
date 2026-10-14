@@ -115,13 +115,14 @@ fun ScaleScreen(vm: ScaleViewModel) {
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             TabRow(selectedTabIndex = tab, containerColor = Bg, contentColor = Accent) {
-                listOf("测量", "历史", "调试").forEachIndexed { i, t ->
+                listOf("测量", "趋势", "历史", "调试").forEachIndexed { i, t ->
                     Tab(selected = tab == i, onClick = { tab = i }, text = { Text(t) })
                 }
             }
             when (tab) {
                 0 -> MeasureTab(ui, vm)
-                1 -> HistoryTab(
+                1 -> com.hackqing.scale.ui.trends.TrendsTab(ui.history)
+                2 -> HistoryTab(
                     ui, vm, snackbar,
                     onSyncHc = { m -> pendingHc = m; hcLauncher.launch(vm.healthConnect.permissions) },
                     onExport = { exportLauncher.launch("hackqing-weight.json") },
