@@ -17,7 +17,9 @@ import androidx.compose.ui.graphics.Color
 import com.hackqing.scale.ui.ScaleScreen
 import com.hackqing.scale.ui.ScaleViewModel
 import com.hackqing.scale.service.ScaleService
+import dagger.hilt.android.AndroidEntryPoint
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     private val vm: ScaleViewModel by viewModels()
