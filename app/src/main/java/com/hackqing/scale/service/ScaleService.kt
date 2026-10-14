@@ -13,6 +13,8 @@ import androidx.core.app.NotificationCompat
 import com.hackqing.scale.MainActivity
 import com.hackqing.scale.R
 import com.hackqing.scale.data.ScaleRepository
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -25,7 +27,11 @@ import java.util.Locale
  * 后台常驻服务：持续扫描并在发现云麦体脂秤时自动连接，
  * 使每天上秤测量后无需打开 App 即可自动接收并保存数据。
  */
+@AndroidEntryPoint
 class ScaleService : Service() {
+
+    @Inject
+    lateinit var repository: ScaleRepository
 
     companion object {
         const val ACTION_START = "com.hackqing.scale.START"
@@ -36,24 +42,25 @@ class ScaleService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var lastSummary = ""
+    private var observing = false
 
     override fun onCreate() {
         super.onCreate()
-        ScaleRepository.init(applicationContext)
+        repository.init()
         createChannel()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> {
-                ScaleRepository.setAutoReconnect(false)
+                repository.setAutoReconnect(false)
                 stopForegroundCompat()
                 stopSelf()
                 return START_NOT_STICKY
             }
             else -> {
                 startForegroundCompat(buildNotification("正在启动…"))
-                ScaleRepository.setAutoReconnect(true, lowPower = true)
+                repository.setAutoReconnect(true, lowPower = true)
                 observe()
             }
         }
@@ -61,8 +68,10 @@ class ScaleService : Service() {
     }
 
     private fun observe() {
+        if (observing) return
+        observing = true
         scope.launch {
-            ScaleRepository.state.collectLatest { s ->
+            repository.state.collectLatest { s ->
                 val summary = when {
                     s.connectedAddress != null && s.liveWeightKg != null ->
                         String.format(Locale.US, "已连接，当前 %.2f kg", s.liveWeightKg)
