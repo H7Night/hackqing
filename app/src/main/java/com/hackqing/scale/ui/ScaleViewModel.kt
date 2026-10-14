@@ -102,44 +102,8 @@ class ScaleViewModel @Inject constructor(
         val list = repository.state.value.history
         viewModelScope.launch(Dispatchers.IO) {
             val ok = try {
-                val arr = JSONArray()
-                val fmt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
-                for (m in list) {
-                    arr.put(JSONObject().apply {
-                        put("time", fmt.format(Date(m.timeMillis)))
-                        put("timestamp", m.timeMillis)
-                        put("weightKg", m.weightKg.toDouble())
-                        m.bodyFatPercent?.let { put("bodyFatPercent", it.toDouble()) }
-                        m.resistance?.let { put("resistance", it) }
-                        m.userId?.let { put("userId", it) }
-                        m.heartRate?.let { put("heartRate", it) }
-                        put("protoVersion", m.protoVersion)
-                        put("rawHex", m.rawHex)
-                        m.composition?.let { c ->
-                            put("bodyComposition", JSONObject().apply {
-                                put("bmi", c.bmi.toDouble())
-                                put("fatPercent", c.fatPercent.toDouble())
-                                put("musclePercent", c.musclePercent.toDouble())
-                                put("waterPercent", c.waterPercent.toDouble())
-                                put("proteinPercent", c.proteinPercent.toDouble())
-                                put("boneKg", c.boneKg.toDouble())
-                                put("visceralFat", c.visceralFat)
-                                put("bmr", c.bmr.toDouble())
-                                put("bodyAge", c.bodyAge)
-                                put("leanBodyMassKg", c.leanBodyMassKg.toDouble())
-                                put("fatMassKg", c.fatMassKg.toDouble())
-                            })
-                        }
-                    })
-                }
-                val root = JSONObject().apply {
-                    put("app", "hackqing")
-                    put("exportedAt", System.currentTimeMillis())
-                    put("count", list.size)
-                    put("measurements", arr)
-                }
                 app.contentResolver.openOutputStream(uri)?.use {
-                    it.write(root.toString(2).toByteArray())
+                    it.write(com.hackqing.scale.data.ExportCodec.toJson(list).toByteArray())
                 }
                 true
             } catch (e: Exception) {
