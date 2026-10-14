@@ -68,6 +68,7 @@ import androidx.health.connect.client.PermissionController
 import com.hackqing.scale.ble.ScaleGattClient
 import com.hackqing.scale.data.UiState
 import com.hackqing.scale.model.ScaleMeasurement
+import com.hackqing.scale.model.UserProfile
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -132,7 +133,7 @@ fun ScaleScreen(vm: ScaleViewModel) {
                 }
             }
             when (tab) {
-                0 -> MeasureTab(ui, vm)
+                0 -> MeasureTab(ui, vm, snackbar)
                 1 -> com.hackqing.scale.ui.trends.TrendsTab(ui.history)
                 2 -> HistoryTab(
                     ui, vm, snackbar, syncingIds,
@@ -197,7 +198,7 @@ private fun stateColor(s: ScaleGattClient.State): Color = when (s) {
 }
 
 @Composable
-private fun MeasureTab(ui: UiState, vm: ScaleViewModel) {
+private fun MeasureTab(ui: UiState, vm: ScaleViewModel, snackbar: SnackbarHostState) {
     var background by remember { mutableStateOf(vm.backgroundEnabled) }
     val notifLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -273,35 +274,87 @@ private fun MeasureTab(ui: UiState, vm: ScaleViewModel) {
         Spacer(Modifier.height(16.dp))
         Text("用户档案（写入秤用于计算体脂）", color = Dim, fontSize = 12.sp)
         Spacer(Modifier.height(6.dp))
-        ProfileEditor(ui, vm)
+        ProfileEditor(ui, vm, snackbar)
     }
 }
 
 @Composable
-private fun ProfileEditor(ui: UiState, vm: ScaleViewModel) {
-    val p = ui.profile
+private fun ProfileEditor(ui: UiState, vm: ScaleViewModel, snackbar: SnackbarHostState) {
+    val scope = rememberCoroutineScope()
+    val saved = ui.profile
+    var editing by remember { mutableStateOf(false) }
+    // 编辑中或已保存档案变化时，草稿重置为已保存值，未保存的改动不会外泄
+    var draft by remember(saved, editing) { mutableStateOf(saved) }
+
     Column {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            NumField("身高cm", p.heightCm.toString(), Modifier.weight(1f)) {
-                vm.updateProfile(p.copy(heightCm = it.toIntOrNull() ?: p.heightCm))
+        if (editing) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                NumField("身高 cm", draft.heightCm.toString(), Modifier.weight(1f)) {
+                    draft = draft.copy(heightCm = it.toIntOrNull() ?: draft.heightCm)
+                }
+                NumField("年龄", draft.age.toString(), Modifier.weight(1f)) {
+                    draft = draft.copy(age = it.toIntOrNull() ?: draft.age)
+                }
             }
-            NumField("年龄", p.age.toString(), Modifier.weight(1f)) {
-                vm.updateProfile(p.copy(age = it.toIntOrNull() ?: p.age))
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                NumField("性别(1男2女)", draft.sex.toString(), Modifier.weight(1f)) {
+                    draft = draft.copy(sex = (it.toIntOrNull() ?: draft.sex).coerceIn(1, 2))
+                }
+                NumField("单位(1kg2lb3斤)", draft.unit.toString(), Modifier.weight(1f)) {
+                    draft = draft.copy(unit = (it.toIntOrNull() ?: draft.unit).coerceIn(1, 3))
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { editing = false }, modifier = Modifier.weight(1f)) {
+                    Text("取消")
+                }
+                Button(
+                    onClick = {
+                        vm.updateProfile(draft)
+                        editing = false
+                        scope.launch { snackbar.showSnackbar("已保存用户档案，历史体成分已按新档案重算") }
+                    },
+                    modifier = Modifier.weight(1f),
+                ) { Text("保存") }
+            }
+        } else {
+            ProfileSummaryCard(saved)
+            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = {
+                        vm.resendUserInfo()
+                        scope.launch { snackbar.showSnackbar("已向秤写入当前用户档案") }
+                    },
+                    modifier = Modifier.weight(1f),
+                ) { Text("写入秤") }
+                Button(onClick = { editing = true }, modifier = Modifier.weight(1f)) {
+                    Text("编辑")
+                }
             }
         }
-        Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            NumField("性别(1男2女)", p.sex.toString(), Modifier.weight(1f)) {
-                vm.updateProfile(p.copy(sex = it.toIntOrNull() ?: p.sex))
-            }
-            NumField("单位(1kg2lb3斤)", p.unit.toString(), Modifier.weight(1f)) {
-                vm.updateProfile(p.copy(unit = it.toIntOrNull() ?: p.unit))
-            }
+    }
+}
+
+@Composable
+private fun ProfileSummaryCard(p: UserProfile) {
+    Card(colors = CardDefaults.cardColors(containerColor = CardBg), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(14.dp)) {
+            ProfileValueRow("身高", "${p.heightCm} cm")
+            ProfileValueRow("年龄", "${p.age} 岁")
+            ProfileValueRow("性别", if (p.sex == 2) "女" else "男")
+            ProfileValueRow("单位", when (p.unit) { 2 -> "lb"; 3 -> "斤"; else -> "kg" })
         }
-        Spacer(Modifier.height(8.dp))
-        OutlinedButton(onClick = { vm.resendUserInfo() }, modifier = Modifier.fillMaxWidth()) {
-            Text("重新写入用户档案")
-        }
+    }
+}
+
+@Composable
+private fun ProfileValueRow(label: String, value: String) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
+        Text(label, color = Dim, fontSize = 12.sp, modifier = Modifier.width(64.dp))
+        Text(value, color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp)
     }
 }
 

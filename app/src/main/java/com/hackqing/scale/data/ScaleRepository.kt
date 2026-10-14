@@ -230,6 +230,9 @@ class ScaleRepository @Inject constructor(
         val recomputed = _state.value.history.map { recompute(p, it) }
         _state.value = _state.value.copy(history = recomputed)
         scope.launch(Dispatchers.IO) { dao.upsert(recomputed.map { it.toEntity() }) }
+
+        // 若秤已就绪，立即把新档案写入秤，使下一次测量的秤端体脂也按新档案计算
+        if (_state.value.state == ScaleGattClient.State.READY) client.resendUserInfo()
         addLog("已更新用户档案并重算历史体成分: 身高${p.heightCm} 年龄${p.age} 性别${p.sex}")
     }
 
