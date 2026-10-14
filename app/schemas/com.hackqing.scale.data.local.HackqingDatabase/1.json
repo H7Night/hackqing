@@ -1,0 +1,142 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "bed187387374b5b47dd4a660c1190efd",
+    "entities": [
+      {
+        "tableName": "measurement",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `timeMillis` INTEGER NOT NULL, `weightKg` REAL NOT NULL, `resistance` INTEGER, `bodyFatPercent` REAL, `userId` INTEGER, `heartRate` INTEGER, `isFinal` INTEGER NOT NULL, `rawHex` TEXT NOT NULL, `protoVersion` INTEGER NOT NULL, `hcSynced` INTEGER NOT NULL, `bmi` REAL, `fatPercent` REAL, `musclePercent` REAL, `waterPercent` REAL, `proteinPercent` REAL, `boneKg` REAL, `visceralFat` INTEGER, `bmr` REAL, `bodyAge` INTEGER, `leanBodyMassKg` REAL, `fatMassKg` REAL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timeMillis",
+            "columnName": "timeMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "weightKg",
+            "columnName": "weightKg",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "resistance",
+            "columnName": "resistance",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "bodyFatPercent",
+            "columnName": "bodyFatPercent",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "userId",
+            "columnName": "userId",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "heartRate",
+            "columnName": "heartRate",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "isFinal",
+            "columnName": "isFinal",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rawHex",
+            "columnName": "rawHex",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "protoVersion",
+            "columnName": "protoVersion",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hcSynced",
+            "columnName": "hcSynced",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bmi",
+            "columnName": "bmi",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "fatPercent",
+            "columnName": "fatPercent",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "musclePercent",
+            "columnName": "musclePercent",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "waterPercent",
+            "columnName": "waterPercent",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "proteinPercent",
+            "columnName": "proteinPercent",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "boneKg",
+            "columnName": "boneKg",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "visceralFat",
+            "columnName": "visceralFat",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "bmr",
+            "columnName": "bmr",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "bodyAge",
+            "columnName": "bodyAge",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "leanBodyMassKg",
+            "columnName": "leanBodyMassKg",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "fatMassKg",
+            "columnName": "fatMassKg",
+            "affinity": "REAL"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'bed187387374b5b47dd4a660c1190efd')"
+    ]
+  }
+}
