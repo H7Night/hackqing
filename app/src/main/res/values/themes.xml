@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.Hackqing" parent="android:Theme.Material.NoActionBar">
-        <item name="android:statusBarColor">#101418</item>
-        <item name="android:windowBackground">#101418</item>
+    <!-- 浅色启动主题：避免浅色模式下启动瞬间出现黑色窗口/状态栏 -->
+    <style name="Theme.Hackqing" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">#FFFAFDFB</item>
     </style>
 </resources>

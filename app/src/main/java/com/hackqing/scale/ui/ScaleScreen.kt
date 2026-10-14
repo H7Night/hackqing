@@ -11,11 +11,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -30,17 +34,19 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -92,8 +98,10 @@ fun ScaleScreen(vm: ScaleViewModel) {
         }
     }
 
-    // Health Connect 权限（授权成功后自动补同步）
+    // Health Connect 权限（授权成功后自动补同步）。syncingIds 用于行内进度反馈，
+    // 点击后立即进入「同步中」状态，避免出现按钮无反应的观感。
     var pendingHc by remember { mutableStateOf<ScaleMeasurement?>(null) }
+    var syncingIds by remember { mutableStateOf(emptySet<Long>()) }
     val hcLauncher = rememberLauncherForActivityResult(
         PermissionController.createRequestPermissionResultContract()
     ) { granted ->
@@ -101,9 +109,13 @@ fun ScaleScreen(vm: ScaleViewModel) {
         pendingHc = null
         if (target != null) {
             if (granted.isNotEmpty()) {
-                vm.syncToHealthConnect(target) { msg -> scope.launch { snackbar.showSnackbar(msg) } }
+                vm.syncToHealthConnect(target) { msg ->
+                    syncingIds = syncingIds - target.id
+                    scope.launch { snackbar.showSnackbar(msg) }
+                }
             } else {
-                scope.launch { snackbar.showSnackbar("未授予 Health Connect 权限") }
+                syncingIds = syncingIds - target.id
+                scope.launch { snackbar.showSnackbar("未授予 Health Connect 权限，未同步") }
             }
         }
     }
@@ -114,7 +126,7 @@ fun ScaleScreen(vm: ScaleViewModel) {
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            TabRow(selectedTabIndex = tab, containerColor = Bg, contentColor = Accent) {
+            PrimaryTabRow(selectedTabIndex = tab, containerColor = Bg, contentColor = Accent) {
                 listOf("测量", "趋势", "历史", "调试").forEachIndexed { i, t ->
                     Tab(selected = tab == i, onClick = { tab = i }, text = { Text(t) })
                 }
@@ -123,8 +135,12 @@ fun ScaleScreen(vm: ScaleViewModel) {
                 0 -> MeasureTab(ui, vm)
                 1 -> com.hackqing.scale.ui.trends.TrendsTab(ui.history)
                 2 -> HistoryTab(
-                    ui, vm, snackbar,
-                    onSyncHc = { m -> pendingHc = m; hcLauncher.launch(vm.healthConnect.permissions) },
+                    ui, vm, snackbar, syncingIds,
+                    onSyncHc = { m ->
+                        pendingHc = m
+                        syncingIds = syncingIds + m.id
+                        hcLauncher.launch(vm.healthConnect.permissions)
+                    },
                     onExport = { exportLauncher.launch("hackqing-weight.json") },
                 )
                 else -> DebugTab(ui, vm)
@@ -135,16 +151,41 @@ fun ScaleScreen(vm: ScaleViewModel) {
 
 @Composable
 private fun TopBar(ui: UiState) {
-    Column(Modifier.fillMaxWidth().background(Color(0xFF151B23)).padding(16.dp)) {
-        Text("hackqing", color = Accent, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-        Text("云麦/好轻 体脂秤数据接管", color = Dim, fontSize = 12.sp)
-        Spacer(Modifier.height(8.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.width(10.dp).height(10.dp).background(stateColor(ui.state), RoundedCornerShape(50)))
-            Spacer(Modifier.width(8.dp))
-            Text(ui.statusText, color = Color.White, fontSize = 13.sp)
+    Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
+        Column(
+            Modifier.fillMaxWidth()
+                // 背景铺满透明状态栏区域，内容避让系统栏，避免标题被状态栏遮挡
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 14.dp),
+        ) {
+            Text(
+                "hackqing",
+                color = MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                "云麦/好轻 体脂秤数据接管",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier.width(10.dp).height(10.dp)
+                        .background(stateColor(ui.state), RoundedCornerShape(50)),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(ui.statusText, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyMedium)
+            }
+            ui.connectedAddress?.let {
+                Text(
+                    "已连: $it",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.labelSmall,
+                )
+            }
         }
-        ui.connectedAddress?.let { Text("已连: $it", color = Dim, fontSize = 11.sp) }
     }
 }
 
@@ -178,7 +219,7 @@ private fun MeasureTab(ui: UiState, vm: ScaleViewModel) {
         Card(colors = CardDefaults.cardColors(containerColor = CardBg), modifier = Modifier.fillMaxWidth()) {
             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("后台自动接收", color = Color.White, fontSize = 15.sp)
+                    Text("后台自动接收", color = MaterialTheme.colorScheme.onSurface, fontSize = 15.sp)
                     Text("常驻后台自动重连，上秤即自动同步", color = Dim, fontSize = 11.sp)
                 }
                 Switch(checked = background, onCheckedChange = { on ->
@@ -206,13 +247,21 @@ private fun MeasureTab(ui: UiState, vm: ScaleViewModel) {
         Spacer(Modifier.height(12.dp))
         Text("设备", color = Dim, fontSize = 12.sp)
         Spacer(Modifier.height(6.dp))
+        if (ui.devices.isEmpty()) {
+            Text(
+                if (ui.state == ScaleGattClient.State.SCANNING) "正在扫描附近设备…" else "未发现设备，点上方「扫描设备」开始",
+                color = Dim, fontSize = 12.sp,
+                modifier = Modifier.padding(vertical = 8.dp),
+            )
+        }
         ui.devices.forEach { d ->
             Card(colors = CardDefaults.cardColors(containerColor = CardBg), modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                 Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(
                             d.name.ifBlank { "(无名)" } + if (vm.isLikelyScale(d)) "  · 云麦秤" else "",
-                            color = if (vm.isLikelyScale(d)) Accent else Color.White, fontSize = 15.sp,
+                            color = if (vm.isLikelyScale(d)) Accent else MaterialTheme.colorScheme.onSurface,
+                            fontSize = 15.sp,
                         )
                         Text("${d.device.address}   RSSI ${d.rssi}", color = Dim, fontSize = 11.sp)
                     }
@@ -274,6 +323,7 @@ private fun HistoryTab(
     ui: UiState,
     vm: ScaleViewModel,
     snackbar: SnackbarHostState,
+    syncingIds: Set<Long>,
     onSyncHc: (ScaleMeasurement) -> Unit,
     onExport: () -> Unit,
 ) {
@@ -293,6 +343,15 @@ private fun HistoryTab(
         Spacer(Modifier.height(8.dp))
 
         LazyColumn(Modifier.fillMaxSize()) {
+            if (ui.history.isEmpty()) {
+                item {
+                    Text(
+                        "暂无测量记录，回到「测量」扫描设备并上秤",
+                        color = Dim, fontSize = 13.sp,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
+                    )
+                }
+            }
             items(ui.history, key = { it.id }) { m ->
                 Card(
                     colors = CardDefaults.cardColors(containerColor = CardBg),
@@ -304,7 +363,11 @@ private fun HistoryTab(
                             Spacer(Modifier.width(6.dp))
                             Text("kg", color = Dim, fontSize = 12.sp)
                             Spacer(Modifier.weight(1f))
-                            Text(fmt.format(Date(m.timeMillis)), color = Color.White, fontSize = 12.sp)
+                            Text(
+                                fmt.format(Date(m.timeMillis)),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 12.sp,
+                            )
                         }
                         val extra = buildString {
                             m.composition?.let {
@@ -320,23 +383,41 @@ private fun HistoryTab(
                         if (extra.isNotBlank()) Text(extra, color = Dim, fontSize = 11.sp)
                         Spacer(Modifier.height(6.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            TextButton(onClick = {
-                                if (!vm.healthConnect.isAvailable) {
-                                    scope.launch { snackbar.showSnackbar("未安装/不支持 Health Connect") }
+                            val syncing = m.id in syncingIds
+                            TextButton(
+                                enabled = !syncing,
+                                onClick = {
+                                    if (!vm.healthConnect.isAvailable) {
+                                        scope.launch { snackbar.showSnackbar("未安装/不支持 Health Connect") }
+                                    } else {
+                                        onSyncHc(m)
+                                    }
+                                },
+                            ) {
+                                if (syncing) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(14.dp),
+                                        strokeWidth = 2.dp,
+                                        color = Accent,
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("同步中…", fontSize = 12.sp)
                                 } else {
-                                    onSyncHc(m)
+                                    Icon(Icons.Filled.FavoriteBorder, contentDescription = null, tint = Accent)
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(
+                                        if (m.hcSynced) "已同步到 Health Connect" else "同步到 Health Connect",
+                                        fontSize = 12.sp,
+                                    )
                                 }
-                            }) {
-                                Icon(Icons.Filled.FavoriteBorder, contentDescription = null, tint = Accent)
-                                Spacer(Modifier.width(4.dp))
-                                Text(
-                                    if (m.hcSynced) "已同步到 Health Connect" else "同步到 Health Connect",
-                                    fontSize = 12.sp,
-                                )
                             }
                             Spacer(Modifier.weight(1f))
                             IconButton(onClick = { pendingDelete = m }) {
-                                Icon(Icons.Filled.Delete, contentDescription = "删除", tint = Color(0xFFE06666))
+                                Icon(
+                                    Icons.Filled.Delete,
+                                    contentDescription = "删除",
+                                    tint = MaterialTheme.colorScheme.error,
+                                )
                             }
                         }
                     }
@@ -364,7 +445,7 @@ private fun HistoryTab(
                 Column {
                     Text(
                         "${fmt.format(Date(m.timeMillis))} · ${String.format(Locale.US, "%.2f", m.weightKg)} kg",
-                        color = Color.White, fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp,
                     )
                     Spacer(Modifier.height(8.dp))
                     Text(
@@ -392,7 +473,7 @@ private fun HistoryTab(
                                 scope.launch { snackbar.showSnackbar(msg) }
                             }
                             pendingDelete = null
-                        }) { Text("同时删 HC", color = Color(0xFFE06666)) }
+                        }) { Text("同时删 HC", color = MaterialTheme.colorScheme.error) }
                     }
                 } else {
                     TextButton(onClick = {
@@ -400,7 +481,7 @@ private fun HistoryTab(
                             scope.launch { snackbar.showSnackbar(msg) }
                         }
                         pendingDelete = null
-                    }) { Text("删除", color = Color(0xFFE06666)) }
+                    }) { Text("删除", color = MaterialTheme.colorScheme.error) }
                 }
             },
             dismissButton = {
@@ -444,7 +525,7 @@ private fun MeasurementDetail(m: ScaleMeasurement) {
 private fun DetailRow(label: String, value: String) {
     Row(Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
         Text(label, color = Dim, fontSize = 12.sp, modifier = Modifier.width(88.dp))
-        Text(value, color = Color.White, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+        Text(value, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
     }
 }
 
